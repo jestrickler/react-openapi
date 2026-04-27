@@ -5,7 +5,7 @@ import {
 import { queryOptions } from "@tanstack/react-query";
 import { findPetsByStatus, getPetById } from "../api/generated/sdk.gen";
 import { queryClient } from "../queryClient";
-import { petDetailResponseSchema, petListResponseSchema } from "./pets.validation";
+import { parsePetDetailResponse, parsePetListResponse } from "./pets.validation";
 
 export const PET_STATUSES = ["available", "pending", "sold"] as const;
 
@@ -32,7 +32,7 @@ export const petListOptions = (status: PetStatus) =>
         signal,
         throwOnError: true,
       });
-      return petListResponseSchema.parse(data);
+      return parsePetListResponse(data);
     },
   });
 
@@ -45,7 +45,7 @@ export const petDetailOptions = (petId: number) =>
         signal,
         throwOnError: true,
       });
-      return petDetailResponseSchema.parse(data);
+      return parsePetDetailResponse(data);
     },
   });
 

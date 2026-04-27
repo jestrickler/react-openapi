@@ -12,6 +12,47 @@ import type { Pet } from "../api/generated/types.gen";
 export const petListResponseSchema = zFindPetsByStatusResponse;
 export const petDetailResponseSchema = zGetPetByIdResponse;
 
+const petLenientSchema = z.object({
+  id: z.union([z.number(), z.bigint()]).optional(),
+  name: z.string().optional(),
+  photoUrls: z.array(z.string()).optional(),
+  status: z.enum(["available", "pending", "sold"]).optional(),
+});
+
+const toNumberId = (id: number | bigint | undefined): number | undefined => {
+  if (typeof id === "number") {
+    return id;
+  }
+  if (typeof id === "bigint") {
+    const asNumber = Number(id);
+    return Number.isSafeInteger(asNumber) ? asNumber : undefined;
+  }
+  return undefined;
+};
+
+const normalizePet = (
+  item: z.infer<typeof petLenientSchema>,
+  fallbackLabel: string,
+): Pet => ({
+  id: toNumberId(item.id),
+  name: item.name?.trim() || fallbackLabel,
+  photoUrls: item.photoUrls ?? [],
+  status: item.status,
+});
+
+// Petstore sometimes returns partial sold records; we normalize instead of failing the whole page.
+export const parsePetListResponse = (input: unknown): Pet[] => {
+  const parsed = z.array(petLenientSchema).parse(input);
+  return parsed.map((item, index) =>
+    normalizePet(item, `Unnamed pet ${toNumberId(item.id) ?? index + 1}`),
+  );
+};
+
+export const parsePetDetailResponse = (input: unknown): Pet => {
+  const parsed = petLenientSchema.parse(input);
+  return normalizePet(parsed, `Unnamed pet ${toNumberId(parsed.id) ?? "unknown"}`);
+};
+
 /**
  * Application-level form validation for creating/updating pets.
  * Parses FormData strings and validates business constraints.

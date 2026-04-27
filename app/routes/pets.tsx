@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Form, Link } from "react-router";
+import { Form, Link, redirect } from "react-router";
 
 import { queryClient } from "../queryClient";
 import type { Route } from "./+types/pets";
@@ -17,7 +17,14 @@ export function meta({}: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
-  const status = coercePetStatus(url.searchParams.get("status"));
+  const rawStatus = url.searchParams.get("status");
+  const status = coercePetStatus(rawStatus);
+
+  // Keep URL state canonical so filters are always shareable/bookmarkable.
+  if (rawStatus !== status) {
+    url.searchParams.set("status", status);
+    return redirect(`${url.pathname}?${url.searchParams.toString()}`);
+  }
 
   await queryClient.ensureQueryData(petListOptions(status));
 
