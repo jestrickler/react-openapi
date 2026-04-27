@@ -3,14 +3,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "react-router build",
-    "dev": "react-router dev",
+    "build": "npm run gen && react-router build",
+    "dev": "npm run gen && react-router dev",
+    "gen": "openapi-ts",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
+    "@hey-api/client-fetch": "^0.13.1",
+    "@hey-api/openapi-ts": "^0.96.1",
     "@react-router/node": "7.14.0",
     "@react-router/serve": "7.14.0",
+    "@tanstack/react-query": "^5.100.5",
     "isbot": "^5.1.36",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
