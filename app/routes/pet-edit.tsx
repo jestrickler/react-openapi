@@ -35,7 +35,9 @@ export async function loader({ params }: Route.LoaderArgs) {
     throw new Response("Invalid pet id.", { status: 400 });
   }
 
-  await queryClient.ensureQueryData(petDetailOptions(petId));
+  // Kick off query in background without waiting—page renders immediately,
+  // Suspense shows skeleton while query completes.
+  queryClient.prefetchQuery(petDetailOptions(petId));
 
   return { petId };
 }

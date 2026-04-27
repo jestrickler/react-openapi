@@ -26,7 +26,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     return redirect(`${url.pathname}?${url.searchParams.toString()}`);
   }
 
-  await queryClient.ensureQueryData(petListOptions(status));
+  // Kick off query in background without waiting—page renders immediately,
+  // Suspense shows skeleton while query completes.
+  queryClient.prefetchQuery(petListOptions(status));
 
   return { status };
 }
