@@ -5,6 +5,7 @@ import { Form, Link, redirect, useNavigation } from "react-router";
 import { deletePet, updatePet } from "../api/generated/sdk.gen";
 import { queryClient } from "../queryClient";
 import type { Route } from "./+types/pet-edit";
+import { PetFormFields } from "./pet-form-fields";
 import {
   invalidateAllPetLists,
   invalidatePetDetail,
@@ -152,58 +153,14 @@ function PetEditForm({
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <Form method="post" className="space-y-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="name">
-            Name
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            required
-            defaultValue={pet?.name ?? ""}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
-          />
-          {fieldErrors?.name && Array.isArray(fieldErrors.name) ? (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.name[0]}</p>
-          ) : null}
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="photoUrl">
-            Primary Photo URL
-          </label>
-          <input
-            id="photoUrl"
-            name="photoUrl"
-            type="url"
-            required
-            defaultValue={pet?.photoUrls?.[0] ?? ""}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
-          />
-          {fieldErrors?.photoUrl && Array.isArray(fieldErrors.photoUrl) ? (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.photoUrl[0]}</p>
-          ) : null}
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="status">
-            Status
-          </label>
-          <select
-            id="status"
-            name="status"
-            defaultValue={pet?.status ?? "available"}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
-          >
-            <option value="available">available</option>
-            <option value="pending">pending</option>
-            <option value="sold">sold</option>
-          </select>
-          {fieldErrors?.status && Array.isArray(fieldErrors.status) ? (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.status[0]}</p>
-          ) : null}
-        </div>
+        <PetFormFields
+          defaults={{
+            name: pet?.name ?? "",
+            photoUrl: pet?.photoUrls?.[0] ?? "",
+            status: pet?.status ?? "available",
+          }}
+          fieldErrors={fieldErrors}
+        />
 
         <div className="flex gap-3 pt-2">
           <button

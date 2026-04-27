@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   zFindPetsByStatusResponse,
   zGetPetByIdResponse,
-  zPet,
 } from "../api/generated/zod.gen";
 import type { Pet } from "../api/generated/types.gen";
 
@@ -18,17 +17,6 @@ export const petDetailResponseSchema = zGetPetByIdResponse;
  * Parses FormData strings and validates business constraints.
  */
 export const petFormSchema = z.object({
-  id: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((val) => {
-      if (!val || val === "") return undefined;
-      const num = Number(val);
-      return Number.isFinite(num) && num > 0 ? num : undefined;
-    })
-    .refine((val) => val === undefined || Number.isFinite(val), {
-      message: "ID must be a positive number",
-    }),
   name: z
     .string()
     .trim()
@@ -52,9 +40,8 @@ export const formDataToPetRequest = (
   data: PetFormData,
   petId?: number,
 ): Pet => {
-  // Generated Zod schemas use bigint, but API expects number
   const pet: Pet = {
-    id: petId ?? data.id,
+    id: petId,
     name: data.name,
     photoUrls: [data.photoUrl],
     status: data.status as "available" | "pending" | "sold" | undefined,

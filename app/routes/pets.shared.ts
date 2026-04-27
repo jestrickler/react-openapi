@@ -1,10 +1,11 @@
 import {
-  findPetsByStatusOptions,
   findPetsByStatusQueryKey,
-  getPetByIdOptions,
   getPetByIdQueryKey,
 } from "../api/generated/@tanstack/react-query.gen";
+import { queryOptions } from "@tanstack/react-query";
+import { findPetsByStatus, getPetById } from "../api/generated/sdk.gen";
 import { queryClient } from "../queryClient";
+import { petDetailResponseSchema, petListResponseSchema } from "./pets.validation";
 
 export const PET_STATUSES = ["available", "pending", "sold"] as const;
 
@@ -23,10 +24,30 @@ export const coercePetStatus = (
 };
 
 export const petListOptions = (status: PetStatus) =>
-  findPetsByStatusOptions({ query: { status: [status] } });
+  queryOptions({
+    queryKey: findPetsByStatusQueryKey({ query: { status: [status] } }),
+    queryFn: async ({ signal }) => {
+      const { data } = await findPetsByStatus({
+        query: { status: [status] },
+        signal,
+        throwOnError: true,
+      });
+      return petListResponseSchema.parse(data);
+    },
+  });
 
 export const petDetailOptions = (petId: number) =>
-  getPetByIdOptions({ path: { petId } });
+  queryOptions({
+    queryKey: getPetByIdQueryKey({ path: { petId } }),
+    queryFn: async ({ signal }) => {
+      const { data } = await getPetById({
+        path: { petId },
+        signal,
+        throwOnError: true,
+      });
+      return petDetailResponseSchema.parse(data);
+    },
+  });
 
 export const invalidateAllPetLists = async () => {
   await Promise.all(
