@@ -6,6 +6,7 @@ export default defineConfig({
   output: 'app/api/generated',
   plugins: [
     '@hey-api/client-fetch',
+    'zod',
     {
       name: '@tanstack/react-query',
       queryOptions: true, // This is the "magic" bridge for RRv7 loaders

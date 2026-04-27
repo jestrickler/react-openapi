@@ -6,11 +6,16 @@ import { deletePet, updatePet } from "../api/generated/sdk.gen";
 import { queryClient } from "../queryClient";
 import type { Route } from "./+types/pet-edit";
 import {
-  coercePetStatus,
   invalidateAllPetLists,
   invalidatePetDetail,
   petDetailOptions,
 } from "./pets.shared";
+import {
+  formDataToPetRequest,
+  parseAndValidatePetForm,
+  petFormSchema,
+  type PetFormActionData,
+} from "./pets.validation";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -38,7 +43,10 @@ export async function action({ params, request }: Route.ActionArgs) {
   const petId = Number.parseInt(params.petId, 10);
 
   if (!Number.isFinite(petId)) {
-    return { error: "Invalid pet id." };
+    return {
+      success: false,
+      error: "Invalid pet id.",
+    } as PetFormActionData;
   }
 
   const formData = await request.formData();
@@ -52,25 +60,20 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
 
     if (intent === "update") {
-      const name = formData.get("name");
-      const photoUrl = formData.get("photoUrl");
-      const status = coercePetStatus(formData.get("status"));
+      const parseResult = await parseAndValidatePetForm(formData, petFormSchema);
 
-      if (typeof name !== "string" || !name.trim()) {
-        return { error: "Name is required." };
+      if (!parseResult.success) {
+        return {
+          success: false,
+          fieldErrors: parseResult.fieldErrors,
+        } as PetFormActionData;
       }
 
-      if (typeof photoUrl !== "string" || !photoUrl.trim()) {
-        return { error: "Photo URL is required." };
-      }
+      const petData = parseResult.data as any;
+      const petPayload = formDataToPetRequest(petData, petId);
 
       await updatePet({
-        body: {
-          id: petId,
-          name: name.trim(),
-          photoUrls: [photoUrl.trim()],
-          status,
-        },
+        body: petPayload,
         throwOnError: true,
       });
 
@@ -78,18 +81,20 @@ export async function action({ params, request }: Route.ActionArgs) {
       return redirect(`/pets/${petId}/edit`);
     }
 
-    return { error: "Unsupported action." };
+    return {
+      success: false,
+      error: "Unsupported action.",
+    } as PetFormActionData;
   } catch (error) {
     return {
+      success: false,
       error:
         error instanceof Error ? error.message : "Unable to save changes. Try again.",
-    };
+    } as PetFormActionData;
   }
 }
 
-type PetEditActionData = {
-  error?: string;
-};
+type PetEditActionData = PetFormActionData;
 
 export default function PetEditPage({
   actionData,
@@ -114,20 +119,26 @@ export default function PetEditPage({
         </Link>
       </div>
 
-      {typedActionData?.error ? (
+      {typedActionData?.success === false && typedActionData?.error ? (
         <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {typedActionData.error}
         </p>
       ) : null}
 
       <Suspense fallback={<PetEditSkeleton />}>
-        <PetEditForm petId={loaderData.petId} />
+        <PetEditForm petId={loaderData.petId} fieldErrors={typedActionData?.fieldErrors} />
       </Suspense>
     </main>
   );
 }
 
-function PetEditForm({ petId }: { petId: number }) {
+function PetEditForm({
+  petId,
+  fieldErrors,
+}: {
+  petId: number;
+  fieldErrors?: Record<string, string[]>;
+}) {
   const navigation = useNavigation();
   const { data: pet } = useSuspenseQuery(petDetailOptions(petId));
 
@@ -153,6 +164,9 @@ function PetEditForm({ petId }: { petId: number }) {
             defaultValue={pet?.name ?? ""}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
           />
+          {fieldErrors?.name && Array.isArray(fieldErrors.name) ? (
+            <p className="mt-1 text-xs text-red-600">{fieldErrors.name[0]}</p>
+          ) : null}
         </div>
 
         <div>
@@ -167,6 +181,9 @@ function PetEditForm({ petId }: { petId: number }) {
             defaultValue={pet?.photoUrls?.[0] ?? ""}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
           />
+          {fieldErrors?.photoUrl && Array.isArray(fieldErrors.photoUrl) ? (
+            <p className="mt-1 text-xs text-red-600">{fieldErrors.photoUrl[0]}</p>
+          ) : null}
         </div>
 
         <div>
@@ -183,6 +200,9 @@ function PetEditForm({ petId }: { petId: number }) {
             <option value="pending">pending</option>
             <option value="sold">sold</option>
           </select>
+          {fieldErrors?.status && Array.isArray(fieldErrors.status) ? (
+            <p className="mt-1 text-xs text-red-600">{fieldErrors.status[0]}</p>
+          ) : null}
         </div>
 
         <div className="flex gap-3 pt-2">

@@ -3,7 +3,6 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Form, Link, redirect, useNavigation } from "react-router";
 
 import { addPet } from "../api/generated/sdk.gen";
-import type { Pet } from "../api/generated/types.gen";
 import { queryClient } from "../queryClient";
 import type { Route } from "./+types/pets";
 import {
@@ -12,6 +11,14 @@ import {
   petListOptions,
   type PetStatus,
 } from "./pets.shared";
+import {
+  formDataToPetRequest,
+  parseAndValidatePetForm,
+  petFormSchema,
+  type PetFormActionData,
+} from "./pets.validation";
+
+type PetsActionData = PetFormActionData;
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -37,54 +44,34 @@ export async function action({ request }: Route.ActionArgs) {
   const intent = formData.get("intent");
 
   if (intent !== "create") {
-    return { error: "Unsupported action." };
+    return { success: false, error: "Unsupported action." } as PetFormActionData;
   }
 
-  const name = formData.get("name");
-  const photoUrl = formData.get("photoUrl");
-  const status = coercePetStatus(formData.get("status"));
-  const idText = formData.get("id");
+  const parseResult = await parseAndValidatePetForm(formData, petFormSchema);
 
-  if (typeof name !== "string" || !name.trim()) {
-    return { error: "Name is required." };
+  if (!parseResult.success) {
+    return {
+      success: false,
+      fieldErrors: parseResult.fieldErrors,
+    } as PetFormActionData;
   }
 
-  if (typeof photoUrl !== "string" || !photoUrl.trim()) {
-    return { error: "Photo URL is required." };
-  }
-
-  const id =
-    typeof idText === "string" && idText.trim().length > 0
-      ? Number.parseInt(idText, 10)
-      : undefined;
-
-  if (idText && Number.isNaN(id)) {
-    return { error: "ID must be a number." };
-  }
-
-  const petPayload: Pet = {
-    id,
-    name: name.trim(),
-    photoUrls: [photoUrl.trim()],
-    status,
-  };
+  const petData = parseResult.data as any;
+  const petPayload = formDataToPetRequest(petData);
 
   try {
     await addPet({ body: petPayload, throwOnError: true });
     await invalidateAllPetLists();
   } catch (error) {
     return {
+      success: false,
       error:
         error instanceof Error ? error.message : "Failed to create pet. Try again.",
-    };
+    } as PetFormActionData;
   }
 
-  return redirect(`/pets?status=${status}`);
+  return redirect(`/pets?status=${petData.status}`);
 }
-
-type PetsActionData = {
-  error?: string;
-};
 
 export default function PetsPage({
   actionData,
@@ -151,8 +138,7 @@ export default function PetsPage({
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Create Pet</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Uses route action + generated SDK write call. On success, action invalidates list
-            query keys and redirects.
+            Validates with generated Zod schemas. Shows per-field errors.
           </p>
 
           <Form method="post" className="mt-4 space-y-4">
@@ -168,6 +154,11 @@ export default function PetsPage({
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
                 placeholder="e.g. 10001"
               />
+              {typedActionData?.fieldErrors?.id ? (
+                <p className="mt-1 text-xs text-red-600">
+                  {typedActionData.fieldErrors.id[0]}
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -182,6 +173,11 @@ export default function PetsPage({
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
                 placeholder="Buddy"
               />
+              {typedActionData?.success === false && typedActionData?.fieldErrors?.name ? (
+                <p className="mt-1 text-xs text-red-600">
+                  {typedActionData.fieldErrors.name[0]}
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -199,6 +195,11 @@ export default function PetsPage({
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
                 placeholder="https://images.example.com/pet.jpg"
               />
+              {typedActionData?.success === false && typedActionData?.fieldErrors?.photoUrl ? (
+                <p className="mt-1 text-xs text-red-600">
+                  {typedActionData.fieldErrors.photoUrl[0]}
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -218,9 +219,14 @@ export default function PetsPage({
                 <option value="pending">pending</option>
                 <option value="sold">sold</option>
               </select>
+              {typedActionData?.success === false && typedActionData?.fieldErrors?.status ? (
+                <p className="mt-1 text-xs text-red-600">
+                  {typedActionData.fieldErrors.status[0]}
+                </p>
+              ) : null}
             </div>
 
-            {typedActionData?.error ? (
+            {typedActionData?.success === false && typedActionData?.error ? (
               <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {typedActionData.error}
               </p>
